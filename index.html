@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manhwa Merger Pro V4.1 - Secure Upload Edition</title>
+    <title>Manhwa Merger Pro V4.2 - Auto-Save API Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root {
@@ -33,15 +33,16 @@
         .bar { height: 100%; width: 0; background: var(--accent-color); transition: width 0.3s; }
         #status { text-align: center; margin-top: 12px; font-size: 13px; color: var(--text-muted); font-weight: bold; }
         .folder-btn-wrapper { background: var(--input-bg); border: 2px dashed var(--border-color); border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; margin-bottom: 15px; }
+        .save-badge { font-size: 10px; color: #4caf50; font-weight: normal; margin-left: 5px; font-style: italic; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="card">
-            <h2>Manhwa Merger Pro V4.1</h2>
-            <p class="subtitle">Secure API Edition</p>
+            <h2>Manhwa Merger Pro V4.2</h2>
+            <p class="subtitle">Secure API Edition (Auto-Save)</p>
             
-            <div class="section-title">1. Resolution Settings <span class="watermark-badge">✓ Auto-Watermark Enabled</span></div>
+            <div class="section-title">1. Resolution Settings <span class="watermark-badge">✓ Auto-Watermark</span></div>
             
             <div class="settings-grid">
                 <div class="input-group full-width">
@@ -63,15 +64,15 @@
                 </div>
             </div>
 
-            <div class="section-title">2. API Credentials</div>
+            <div class="section-title">2. API Credentials <span class="save-badge" id="saveStatus">(Auto-saved in browser)</span></div>
             <div class="settings-grid">
                 <div class="input-group full-width">
                     <label>Telegram Bot Token</label>
-                    <input id="botToken" type="password" placeholder="Paste Bot Token here...">
+                    <input id="botToken" type="password" placeholder="Paste Bot Token here..." oninput="saveCredentials()">
                 </div>
                 <div class="input-group full-width">
                     <label>GitHub PAT (ghp_...)</label>
-                    <input id="ghPat" type="password" placeholder="Paste GitHub PAT here...">
+                    <input id="ghPat" type="password" placeholder="Paste GitHub PAT here..." oninput="saveCredentials()">
                 </div>
             </div>
 
@@ -104,6 +105,22 @@
 
         const IMAGES_PER_OUTPUT = 10; 
         let chaptersData = []; 
+
+        // 🛑 NAYA FEATURE: Auto-load credentials jab page khule
+        window.onload = function() {
+            if(localStorage.getItem("savedBotToken")) {
+                document.getElementById("botToken").value = localStorage.getItem("savedBotToken");
+            }
+            if(localStorage.getItem("savedGhPat")) {
+                document.getElementById("ghPat").value = localStorage.getItem("savedGhPat");
+            }
+        };
+
+        // 🛑 NAYA FEATURE: Jab bhi tum type karoge, save ho jayega
+        function saveCredentials() {
+            localStorage.setItem("savedBotToken", document.getElementById("botToken").value.trim());
+            localStorage.setItem("savedGhPat", document.getElementById("ghPat").value.trim());
+        }
 
         function autoAdjustCrop() {
             let width = parseInt(document.getElementById("targetWidth").value);
@@ -236,6 +253,10 @@
             if (!botToken || !ghPat) {
                 return alert("Upload ke liye Telegram Bot Token aur GitHub PAT daalna zaroori hai!");
             }
+            
+            // Ek aakhiri baar save kar lete hain safety ke liye
+            saveCredentials();
+
             if (chaptersData.length === 0) return alert("Pehle folder select karo!");
 
             document.getElementById("mergeBtn").disabled = true;
