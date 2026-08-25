@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manhwa Merger Pro V4.4 - Cloud Only Edition</title>
+    <title>Manhwa Merger Pro V5.1 - Auto-Correct Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root {
@@ -21,35 +21,39 @@
         .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px; }
         .input-group { display: flex; flex-direction: column; }
         .input-group label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
-        input[type="text"], input[type="number"], input[type="password"], select { width: 100%; padding: 12px; background: var(--input-bg); color: var(--text-main); border-radius: 8px; border: 1px solid var(--border-color); box-sizing: border-box; font-size: 14px; }
-        input:focus, select:focus { border-color: var(--accent-color); outline: none; }
+        input[type="text"], input[type="number"], input[type="password"], select, textarea { width: 100%; padding: 12px; background: var(--input-bg); color: var(--text-main); border-radius: 8px; border: 1px solid var(--border-color); box-sizing: border-box; font-size: 14px; font-family: inherit; }
+        input:focus, select:focus, textarea:focus { border-color: var(--accent-color); outline: none; }
         .full-width { grid-column: span 2; }
         button { width: 100%; padding: 14px; margin-top: 20px; border-radius: 8px; border: none; background: var(--accent-color); color: var(--text-main); cursor: pointer; font-weight: bold; transition: background 0.2s; font-size: 16px; }
         button:hover { background: var(--accent-hover); }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
         .inputs-wrapper { max-height: 320px; overflow-y: auto; margin-top: 10px; }
-        .ep-row { background: var(--input-bg); padding: 12px; margin-bottom: 10px; border-radius: 8px; font-size: 14px; display: flex; justify-content: space-between; }
+        .ep-row { background: var(--input-bg); padding: 12px; margin-bottom: 10px; border-radius: 8px; font-size: 14px; display: flex; flex-direction: column; }
+        .ep-row-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 5px; color: var(--accent-color); }
+        .ep-row-detail { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 5px; margin-top: 2px; }
         .progress { height: 8px; background: var(--input-bg); border-radius: 4px; overflow: hidden; margin-top: 25px; display: none; }
         .bar { height: 100%; width: 0; background: var(--accent-color); transition: width 0.3s; }
         #status { text-align: center; margin-top: 12px; font-size: 13px; color: var(--text-muted); font-weight: bold; }
         .folder-btn-wrapper { background: var(--input-bg); border: 2px dashed var(--border-color); border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; margin-bottom: 15px; }
         .save-badge { font-size: 10px; color: #4caf50; font-weight: normal; margin-left: 5px; font-style: italic; }
+        .note { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="card">
-            <h2>Manhwa Merger Pro V4.4</h2>
-            <p class="subtitle">Cloud Only Edition (No Local Download)</p>
+            <h2>Manhwa Merger Pro V5.1</h2>
+            <p class="subtitle">Multi-Comic Batch + GitHub Auto-Correction</p>
             
-            <div class="section-title">1. Resolution Settings <span class="watermark-badge">✓ Auto-Watermark</span></div>
+            <div class="section-title">1. Dictionary & Settings <span class="watermark-badge">✓ Auto-Saved</span></div>
             
             <div class="settings-grid">
                 <div class="input-group full-width">
-                    <label>Comic Name & Chapters (e.g., wild_love76-80)</label>
-                    <input id="zipName" type="text" placeholder="e.g. wild_love76-80" value="">
+                    <label>Comic Shortcuts Mapping</label>
+                    <textarea id="comicMappings" rows="3" placeholder="WL = wild_love&#10;JJSS = jija-ji-se-shaadi" oninput="saveCredentials()"></textarea>
+                    <p class="note">Format: SHORTCUT = NAME (Tool will automatically fix - or _ errors by checking GitHub)</p>
                 </div>
-                
+
                 <div class="input-group">
                     <label>Target Width (Pixels)</label>
                     <select id="targetWidth" onchange="autoAdjustCrop()">
@@ -64,7 +68,7 @@
                 </div>
             </div>
 
-            <div class="section-title">2. API Credentials <span class="save-badge" id="saveStatus">(Auto-saved)</span></div>
+            <div class="section-title">2. API Credentials</div>
             <div class="settings-grid">
                 <div class="input-group full-width">
                     <label>Telegram Bot Token</label>
@@ -76,18 +80,19 @@
                 </div>
             </div>
 
-            <div class="section-title">3. Select Raw Folder (1, 2, 3...)</div>
+            <div class="section-title">3. Select Main Folder</div>
             
             <div class="folder-btn-wrapper" onclick="document.getElementById('folderInput').click()">
-                <span style="font-size: 16px; font-weight: bold;">📁 Click to Select Raw Chapters</span><br>
+                <span style="font-size: 16px; font-weight: bold;">📁 Select Folder Containing Comics</span><br>
+                <span class="note">Structure: Main Folder > WL 76 > 1 > images...</span>
                 <input id="folderInput" type="file" webkitdirectory directory multiple style="display: none;" onchange="handleFolderSelect(this)">
             </div>
 
             <div class="inputs-wrapper" id="inputsContainer">
-                <div style="text-align: center; color: var(--text-muted); font-size: 13px;">No folder selected yet.</div>
+                <div style="text-align: center; color: var(--text-muted); font-size: 13px;">No folders selected yet.</div>
             </div>
             
-            <button id="mergeBtn" onclick="startMerge()" disabled>Process & Auto-Upload</button>
+            <button id="mergeBtn" onclick="startMerge()" disabled>Process All Comics & Upload</button>
             
             <div id="progressContainer" class="progress"><div id="bar" class="bar"></div></div>
             <p id="status">Ready to process</p>
@@ -104,20 +109,30 @@
         // ==========================================
 
         const IMAGES_PER_OUTPUT = 10; 
-        let chaptersData = []; 
+        let batchData = []; 
 
         window.onload = function() {
-            if(localStorage.getItem("savedBotToken")) {
-                document.getElementById("botToken").value = localStorage.getItem("savedBotToken");
-            }
-            if(localStorage.getItem("savedGhPat")) {
-                document.getElementById("ghPat").value = localStorage.getItem("savedGhPat");
-            }
+            if(localStorage.getItem("savedBotToken")) document.getElementById("botToken").value = localStorage.getItem("savedBotToken");
+            if(localStorage.getItem("savedGhPat")) document.getElementById("ghPat").value = localStorage.getItem("savedGhPat");
+            if(localStorage.getItem("savedMappings")) document.getElementById("comicMappings").value = localStorage.getItem("savedMappings");
         };
 
         function saveCredentials() {
             localStorage.setItem("savedBotToken", document.getElementById("botToken").value.trim());
             localStorage.setItem("savedGhPat", document.getElementById("ghPat").value.trim());
+            localStorage.setItem("savedMappings", document.getElementById("comicMappings").value.trim());
+        }
+
+        function parseMappings() {
+            const text = document.getElementById("comicMappings").value;
+            const map = {};
+            text.split('\n').forEach(line => {
+                if(line.includes('=')) {
+                    let [key, val] = line.split('=');
+                    map[key.trim().toUpperCase()] = val.trim();
+                }
+            });
+            return map;
         }
 
         function autoAdjustCrop() {
@@ -130,32 +145,88 @@
 
         function handleFolderSelect(input) {
             const files = Array.from(input.files);
-            const folderGroups = {};
+            const comicsObj = {};
 
             files.forEach(file => {
                 if (!file.type.startsWith('image/')) return;
                 const parts = file.webkitRelativePath.split('/');
-                if (parts.length >= 3) {
-                    const subFolder = parts[1];
-                    if (!folderGroups[subFolder]) folderGroups[subFolder] = [];
-                    folderGroups[subFolder].push(file);
+                if (parts.length >= 4) {
+                    const comicFolder = parts[1]; 
+                    const chapterFolder = parts[2]; 
+                    
+                    if (!comicsObj[comicFolder]) comicsObj[comicFolder] = {};
+                    if (!comicsObj[comicFolder][chapterFolder]) comicsObj[comicFolder][chapterFolder] = [];
+                    
+                    comicsObj[comicFolder][chapterFolder].push(file);
                 }
             });
 
-            const sortedFolders = Object.keys(folderGroups).sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
-            chaptersData = [];
-            document.getElementById("inputsContainer").innerHTML = '';
+            const mappings = parseMappings();
+            batchData = [];
+            const container = document.getElementById("inputsContainer");
+            container.innerHTML = '';
 
-            sortedFolders.forEach((folderName) => {
-                let epFiles = folderGroups[folderName].sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true}));
-                chaptersData.push({ originalName: folderName, files: epFiles });
-                document.getElementById("inputsContainer").innerHTML += `<div class="ep-row"><span>Raw Folder: ${folderName}</span><span>${epFiles.length} images</span></div>`;
+            Object.keys(comicsObj).sort().forEach((comicFolder) => {
+                let prefix = comicFolder;
+                let startChapter = 1;
+                const match = comicFolder.match(/^([A-Za-z]+)[\s\-_]*(\d+)/);
+                
+                if(match) {
+                    prefix = match[1].toUpperCase();
+                    startChapter = parseInt(match[2]);
+                }
+                
+                const intendedName = mappings[prefix] || comicFolder;
+
+                const chapters = [];
+                const sortedChaps = Object.keys(comicsObj[comicFolder]).sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
+                
+                sortedChaps.forEach(chapRaw => {
+                    let epFiles = comicsObj[comicFolder][chapRaw].sort((a,b) => a.name.localeCompare(b.name, undefined, {numeric: true}));
+                    chapters.push({ rawName: chapRaw, files: epFiles });
+                });
+
+                batchData.push({
+                    originalFolder: comicFolder,
+                    githubName: intendedName, // Initial intended name
+                    startChapter: startChapter,
+                    chapters: chapters
+                });
+
+                let html = `<div class="ep-row">
+                    <div class="ep-row-header"><span>📁 ${comicFolder}</span> <span>➜ ${intendedName}</span></div>`;
+                
+                let offset = 0;
+                chapters.forEach(ch => {
+                    html += `<div class="ep-row-detail"><span>Sub-folder: ${ch.rawName}</span> <span>ch${startChapter + offset} (${ch.files.length} imgs)</span></div>`;
+                    offset++;
+                });
+                html += `</div>`;
+                container.innerHTML += html;
             });
 
-            if (chaptersData.length > 0) {
+            if (batchData.length > 0) {
                 document.getElementById("mergeBtn").disabled = false;
-                s(`Loaded ${chaptersData.length} raw folders successfully.`);
+                s(`Loaded ${batchData.length} comics successfully.`);
+            } else {
+                s("No valid structure found. Need: Folder > ComicName > 1 > images");
             }
+        }
+
+        // 🛑 NEW FUNCTION: Check existing GitHub folders to prevent - and _ mistakes
+        async function getExistingGitHubFolders(ghPat) {
+            try {
+                const res = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/comics`, {
+                    headers: { "Authorization": `token ${ghPat}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    return data.filter(d => d.type === 'dir').map(d => d.name);
+                }
+            } catch (e) {
+                console.log("Comics folder empty or not found yet.");
+            }
+            return [];
         }
 
         function loadImage(src) {
@@ -196,7 +267,7 @@
         }
 
         async function sendZipToTelegram(zipBlob, zipName, botToken) {
-            s("Uploading ZIP to Telegram Backup Channel...");
+            s("Uploading Master ZIP to Telegram Backup...");
             const formData = new FormData();
             formData.append("chat_id", TELEGRAM_CHAT_ID);
             formData.append("document", zipBlob, `${zipName}.zip`);
@@ -206,7 +277,6 @@
                     method: "POST",
                     body: formData
                 });
-                console.log("Telegram upload success!");
             } catch (e) {
                 console.error("Telegram Upload Failed", e);
             }
@@ -248,122 +318,128 @@
             const botToken = document.getElementById("botToken").value.trim();
             const ghPat = document.getElementById("ghPat").value.trim();
             
-            if (!botToken || !ghPat) {
-                return alert("Upload ke liye Telegram Bot Token aur GitHub PAT daalna zaroori hai!");
-            }
+            if (!botToken || !ghPat) return alert("Upload ke liye Telegram Bot Token aur GitHub PAT daalna zaroori hai!");
+            
             saveCredentials();
-            if (chaptersData.length === 0) return alert("Pehle folder select karo!");
+            if (batchData.length === 0) return alert("Pehle main folder select karo!");
 
             document.getElementById("mergeBtn").disabled = true;
             document.getElementById("progressContainer").style.display = "block";
-            
-            const rawZipName = document.getElementById("zipName").value.trim() || "Merged_Chapters_1";
-            
-            let comicName = "Unknown_Comic";
-            let startChapter = 1;
-            
-            const match = rawZipName.match(/^(.*?)[_\-\s]*(\d+)(?:-\d+)?$/);
-            if (match) {
-                comicName = match[1]; 
-                startChapter = parseInt(match[2]); 
-            } else {
-                comicName = rawZipName;
-            }
 
+            // 🛑 APPLYING AUTO-CORRECTION LOGIC BEFORE PROCESSING
+            s("Verifying folders with GitHub to prevent path errors...");
+            const existingFolders = await getExistingGitHubFolders(ghPat);
+            
+            // Helper function to remove dashes and underscores for comparison (wild-love -> wildlove)
+            const sanitize = str => str.replace(/[-_]/g, '').toLowerCase();
+
+            for (let comic of batchData) {
+                const intendedName = comic.githubName;
+                const sanitizedIntended = sanitize(intendedName);
+                
+                const matchedExisting = existingFolders.find(f => sanitize(f) === sanitizedIntended);
+                
+                if (matchedExisting && matchedExisting !== intendedName) {
+                    console.log(`Auto-Corrected: User typed '${intendedName}', but GitHub has '${matchedExisting}'. Fixed!`);
+                    comic.githubName = matchedExisting; // Override with exact GitHub name
+                }
+            }
+            
             const targetWidth = parseInt(document.getElementById("targetWidth").value);
             const cropValue = parseInt(document.getElementById("cropPixels").value) || 0;
             
             const zip = new JSZip();
             let githubUploadQueue = [];
             
-            let totalBatches = chaptersData.reduce((acc, ep) => acc + Math.ceil(ep.files.length / IMAGES_PER_OUTPUT), 0);
+            let totalBatches = 0;
+            batchData.forEach(comic => {
+                comic.chapters.forEach(ch => {
+                    totalBatches += Math.ceil(ch.files.length / IMAGES_PER_OUTPUT);
+                });
+            });
+            
             let processedBatches = 0;
-
-            s("Checking for watermark...");
             const watermark = await loadWatermark();
 
-            s(`Merging images for ${comicName} starting from Chapter ${startChapter}...`);
+            for (let comic of batchData) {
+                s(`Processing comic: ${comic.githubName}...`);
+                let chapterOffset = 0;
 
-            let chapterOffset = 0;
-            for (let ep of chaptersData) {
-                let actualChapter = startChapter + chapterOffset;
-                let epFolder = zip.folder(`ch${actualChapter}`); 
-                let out = 1;
-                let global = 0; 
+                for (let ch of comic.chapters) {
+                    let actualChapter = comic.startChapter + chapterOffset;
+                    let epFolder = zip.folder(`${comic.githubName}/ch${actualChapter}`); 
+                    let out = 1;
+                    let global = 0; 
 
-                for (let i = 0; i < ep.files.length; i += IMAGES_PER_OUTPUT) {
-                    const batch = ep.files.slice(i, i + IMAGES_PER_OUTPUT);
-                    const images = await Promise.all(batch.map(f => fileToImage(f)));
+                    for (let i = 0; i < ch.files.length; i += IMAGES_PER_OUTPUT) {
+                        const batch = ch.files.slice(i, i + IMAGES_PER_OUTPUT);
+                        const images = await Promise.all(batch.map(f => fileToImage(f)));
 
-                    let finalHeight = 0;
-                    let data = images.map(img => {
-                        let scale = targetWidth / img.width;
-                        let originalDrawnHeight = Math.floor(img.height * scale);
-                        let currentCrop = (global === 0) ? 0 : cropValue;
-                        let finalDrawnHeight = originalDrawnHeight - currentCrop;
+                        let finalHeight = 0;
+                        let data = images.map(img => {
+                            let scale = targetWidth / img.width;
+                            let originalDrawnHeight = Math.floor(img.height * scale);
+                            let currentCrop = (global === 0) ? 0 : cropValue;
+                            let finalDrawnHeight = originalDrawnHeight - currentCrop;
+                            
+                            finalHeight += finalDrawnHeight;
+                            global++;
+                            return { img, currentCrop, finalDrawnHeight };
+                        });
+
+                        const canvas = document.createElement("canvas");
+                        canvas.width = targetWidth; 
+                        canvas.height = finalHeight;
+                        const ctx = canvas.getContext("2d");
+
+                        let y = 0;
+                        data.forEach(d => {
+                            let scale = targetWidth / d.img.width;
+                            let originalCropOffset = Math.floor(d.currentCrop / scale);
+                            let originalCropHeight = d.img.height - originalCropOffset;
+                            ctx.drawImage(d.img, 0, originalCropOffset, d.img.width, originalCropHeight, 0, y, targetWidth, d.finalDrawnHeight);
+                            y += d.finalDrawnHeight;
+                        });
+
+                        if (watermark) {
+                            const wmWidth = targetWidth * 0.40; 
+                            const wmHeight = watermark.height * (wmWidth / watermark.width);
+                            ctx.globalAlpha = 0.50; 
+                            ctx.drawImage(watermark, targetWidth - wmWidth - 20, (finalHeight / 2) - (wmHeight / 2), wmWidth, wmHeight);
+                            ctx.drawImage(watermark, targetWidth - wmWidth - 20, finalHeight - wmHeight - 20, wmWidth, wmHeight);
+                            ctx.globalAlpha = 1.0; 
+                        }
+
+                        const blob = await new Promise(r => canvas.toBlob(r, "image/webp", 0.95));
+                        const fileName = String(out).padStart(3, "0") + ".webp";
                         
-                        finalHeight += finalDrawnHeight;
-                        global++;
-                        return { img, currentCrop, finalDrawnHeight };
-                    });
-
-                    const canvas = document.createElement("canvas");
-                    canvas.width = targetWidth; 
-                    canvas.height = finalHeight;
-                    const ctx = canvas.getContext("2d");
-
-                    let y = 0;
-                    data.forEach(d => {
-                        let scale = targetWidth / d.img.width;
-                        let originalCropOffset = Math.floor(d.currentCrop / scale);
-                        let originalCropHeight = d.img.height - originalCropOffset;
-
-                        ctx.drawImage(
-                            d.img, 
-                            0, originalCropOffset, d.img.width, originalCropHeight, 
-                            0, y, targetWidth, d.finalDrawnHeight
-                        );
-                        y += d.finalDrawnHeight;
-                    });
-
-                    if (watermark) {
-                        const wmWidth = targetWidth * 0.40; 
-                        const wmHeight = watermark.height * (wmWidth / watermark.width);
-                        ctx.globalAlpha = 0.50; 
-                        ctx.drawImage(watermark, targetWidth - wmWidth - 20, (finalHeight / 2) - (wmHeight / 2), wmWidth, wmHeight);
-                        ctx.drawImage(watermark, targetWidth - wmWidth - 20, finalHeight - wmHeight - 20, wmWidth, wmHeight);
-                        ctx.globalAlpha = 1.0; 
+                        epFolder.file(fileName, blob);
+                        
+                        githubUploadQueue.push({
+                            blob: blob,
+                            path: `comics/${comic.githubName}/ch${actualChapter}/${fileName}`
+                        });
+                        
+                        processedBatches++;
+                        p(Math.round((processedBatches / totalBatches) * 100));
+                        s(`Processed ${comic.originalFolder} -> ch${actualChapter} - Slice ${out}`);
+                        out++;
                     }
-
-                    const blob = await new Promise(r => canvas.toBlob(r, "image/webp", 0.95));
-                    const fileName = String(out).padStart(3, "0") + ".webp";
-                    
-                    epFolder.file(fileName, blob);
-                    
-                    githubUploadQueue.push({
-                        blob: blob,
-                        path: `comics/${comicName}/ch${actualChapter}/${fileName}`
-                    });
-                    
-                    processedBatches++;
-                    p(Math.round((processedBatches / totalBatches) * 100));
-                    s(`Processed ch${actualChapter} - Slice ${out}`);
-                    out++;
+                    chapterOffset++; 
                 }
-                chapterOffset++; 
             }
 
-            // ZIP bas generate hogi, par ab download (a.click) wala hissa hata diya hai
-            s("Packaging ZIP for Telegram...");
+            s("Packaging Master ZIP for Telegram...");
             const finalZipBlob = await zip.generateAsync({ type: "blob" });
+            const zipBackupName = `Comics_Backup_${Date.now()}`;
 
             p(0); 
-            await sendZipToTelegram(finalZipBlob, rawZipName, botToken);
+            await sendZipToTelegram(finalZipBlob, zipBackupName, botToken);
 
             p(0);
             await uploadImagesToGitHub(githubUploadQueue, ghPat);
 
-            s("🎉 All Done! Sent to Telegram & Correct Paths Uploaded to GitHub.");
+            s("🎉 Master Batch Processing Complete! Sent to Telegram & GitHub.");
             document.getElementById("mergeBtn").disabled = false;
         }
     </script>
