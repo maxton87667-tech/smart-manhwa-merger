@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manhwa Merger Pro V4.1 - Secure Upload Edition</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f0f12; --card-bg: #18181c; --accent-color: #8b5cf6;
+            --accent-hover: #7c3aed; --text-main: #ffffff; --text-muted: #9ca3af;
+            --input-bg: #222227; --border-color: #2e2e38;
+        }
+        body { background: var(--bg-color); color: var(--text-main); font-family: 'Segoe UI', sans-serif; padding: 40px 20px; display: flex; justify-content: center; margin: 0; }
+        .container { max-width: 600px; width: 100%; }
+        .card { background: var(--card-bg); padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.7); border: 1px solid var(--border-color); }
+        h2 { margin-top: 0; text-align: center; font-size: 24px; color: var(--text-main); }
+        .subtitle { text-align: center; font-size: 13px; color: var(--text-muted); margin-top: -10px; margin-bottom: 25px; }
+        .section-title { font-size: 14px; text-transform: uppercase; color: var(--accent-color); margin-bottom: 15px; font-weight: bold; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; display: flex; justify-content: space-between; }
+        .watermark-badge { font-size: 10px; background: #2e2e38; padding: 2px 8px; border-radius: 10px; color: #4caf50; }
+        .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px; }
+        .input-group { display: flex; flex-direction: column; }
+        .input-group label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+        input[type="text"], input[type="number"], input[type="password"], select { width: 100%; padding: 12px; background: var(--input-bg); color: var(--text-main); border-radius: 8px; border: 1px solid var(--border-color); box-sizing: border-box; font-size: 14px; }
+        input:focus, select:focus { border-color: var(--accent-color); outline: none; }
+        .full-width { grid-column: span 2; }
+        button { width: 100%; padding: 14px; margin-top: 20px; border-radius: 8px; border: none; background: var(--accent-color); color: var(--text-main); cursor: pointer; font-weight: bold; transition: background 0.2s; font-size: 16px; }
+        button:hover { background: var(--accent-hover); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .inputs-wrapper { max-height: 320px; overflow-y: auto; margin-top: 10px; }
+        .ep-row { background: var(--input-bg); padding: 12px; margin-bottom: 10px; border-radius: 8px; font-size: 14px; display: flex; justify-content: space-between; }
+        .progress { height: 8px; background: var(--input-bg); border-radius: 4px; overflow: hidden; margin-top: 25px; display: none; }
+        .bar { height: 100%; width: 0; background: var(--accent-color); transition: width 0.3s; }
+        #status { text-align: center; margin-top: 12px; font-size: 13px; color: var(--text-muted); font-weight: bold; }
+        .folder-btn-wrapper { background: var(--input-bg); border: 2px dashed var(--border-color); border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h2>Manhwa Merger Pro V4.1</h2>
+            <p class="subtitle">Secure API Edition</p>
+            
+            <div class="section-title">1. Resolution Settings <span class="watermark-badge">✓ Auto-Watermark Enabled</span></div>
+            
+            <div class="settings-grid">
+                <div class="input-group full-width">
+                    <label>Project / Folder Name</label>
+                    <input id="zipName" type="text" placeholder="e.g. Ishq_Par_Jor_Nahi" value="">
+                </div>
+                
+                <div class="input-group">
+                    <label>Target Width (Pixels)</label>
+                    <select id="targetWidth" onchange="autoAdjustCrop()">
+                        <option value="720" selected>720 px (Optimized)</option>
+                        <option value="1080">1080 px (High-Res)</option>
+                    </select>
+                </div>
+                
+                <div class="input-group">
+                    <label>Crop Pixels (Per Joint)</label>
+                    <input id="cropPixels" type="number" value="365">
+                </div>
+            </div>
+
+            <div class="section-title">2. API Credentials</div>
+            <div class="settings-grid">
+                <div class="input-group full-width">
+                    <label>Telegram Bot Token</label>
+                    <input id="botToken" type="password" placeholder="Paste Bot Token here...">
+                </div>
+                <div class="input-group full-width">
+                    <label>GitHub PAT (ghp_...)</label>
+                    <input id="ghPat" type="password" placeholder="Paste GitHub PAT here...">
+                </div>
+            </div>
+
+            <div class="section-title">3. Select Main Folder</div>
+            
+            <div class="folder-btn-wrapper" onclick="document.getElementById('folderInput').click()">
+                <span style="font-size: 16px; font-weight: bold;">📁 Click to Select Raw Chapters</span><br>
+                <input id="folderInput" type="file" webkitdirectory directory multiple style="display: none;" onchange="handleFolderSelect(this)">
+            </div>
+
+            <div class="inputs-wrapper" id="inputsContainer">
+                <div style="text-align: center; color: var(--text-muted); font-size: 13px;">No folder selected yet.</div>
+            </div>
+            
+            <button id="mergeBtn" onclick="startMerge()" disabled>Process & Auto-Upload</button>
+            
+            <div id="progressContainer" class="progress"><div id="bar" class="bar"></div></div>
+            <p id="status">Ready to process</p>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIGURATION
+        // ==========================================
+        const TELEGRAM_CHAT_ID = "-1003079664561"; 
+        const GITHUB_OWNER = "maxton87667-tech"; 
+        const GITHUB_REPO = "Comics"; 
+        // ==========================================
+
+        const IMAGES_PER_OUTPUT = 10; 
+        let chaptersData = []; 
+
+        function autoAdjustCrop() {
+            let width = parseInt(document.getElementById("targetWidth").value);
+            document.getElementById("cropPixels").value = width === 720 ? "365" : "493";
+        }
+
+        function p(v) { document.getElementById("bar").style.width = v + "%"; }
+        function s(v) { document.getElementById("status").textContent = v; }
+
+        function handleFolderSelect(input) {
+            const files = Array.from(input.files);
+            const folderGroups = {};
+
+            files.forEach(file => {
+                if (!file.type.startsWith('image/')) return;
+                const parts = file.webkitRelativePath.split('/');
+                if (parts.length >= 3) {
+                    const subFolder = parts[1];
+                    if (!folderGroups[subFolder]) folderGroups[subFolder] = [];
+                    folderGroups[subFolder].push(file);
+                }
+            });
+
+            const sortedFolders = Object.keys(folderGroups).sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
+            chaptersData = [];
+            document.getElementById("inputsContainer").innerHTML = '';
+
+            sortedFolders.forEach((folderName) => {
+                let epFiles = folderGroups[folderName].sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true}));
+                chaptersData.push({ originalName: folderName, files: epFiles });
+                document.getElementById("inputsContainer").innerHTML += `<div class="ep-row"><span>Folder: ${folderName}</span><span>${epFiles.length} images</span></div>`;
+            });
+
+            if (chaptersData.length > 0) {
+                document.getElementById("mergeBtn").disabled = false;
+                s(`Loaded ${chaptersData.length} folders successfully.`);
+            }
+        }
+
+        function loadImage(src) {
+            return new Promise((res, rej) => {
+                const img = new Image();
+                img.onload = () => res(img);
+                img.onerror = rej;
+                img.src = src;
+            });
+        }
+
+        async function loadWatermark() {
+            try {
+                const response = await fetch('./watermark.png');
+                if (!response.ok) return null;
+                const blob = await response.blob();
+                return await loadImage(URL.createObjectURL(blob));
+            } catch(e) { 
+                return null; 
+            }
+        }
+
+        async function fileToImage(file) {
+            return new Promise((res, rej) => {
+                const img = new Image();
+                img.onload = () => res(img);
+                img.onerror = rej;
+                img.src = URL.createObjectURL(file);
+            });
+        }
+
+        async function blobToBase64(blob) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        async function sendZipToTelegram(zipBlob, zipName, botToken) {
+            s("Uploading ZIP to Telegram Backup Channel...");
+            const formData = new FormData();
+            formData.append("chat_id", TELEGRAM_CHAT_ID);
+            formData.append("document", zipBlob, `${zipName}.zip`);
+            
+            try {
+                await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
+                    method: "POST",
+                    body: formData
+                });
+                console.log("Telegram upload success!");
+            } catch (e) {
+                console.error("Telegram Upload Failed", e);
+            }
+        }
+
+        async function uploadImagesToGitHub(githubUploadQueue, ghPat) {
+            let count = 1;
+            let total = githubUploadQueue.length;
+            
+            for (let item of githubUploadQueue) {
+                s(`Uploading to GitHub: ${count} of ${total} images...`);
+                const base64Data = await blobToBase64(item.blob);
+                
+                const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${item.path}`;
+                const body = {
+                    message: `Auto-upload: ${item.path}`,
+                    content: base64Data
+                };
+
+                try {
+                    await fetch(url, {
+                        method: "PUT",
+                        headers: {
+                            "Authorization": `token ${ghPat}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(body)
+                    });
+                } catch (e) {
+                    console.error("GitHub Upload Failed", e);
+                }
+                
+                p(Math.round((count / total) * 100)); 
+                count++;
+            }
+        }
+
+        async function startMerge() {
+            const botToken = document.getElementById("botToken").value.trim();
+            const ghPat = document.getElementById("ghPat").value.trim();
+            
+            if (!botToken || !ghPat) {
+                return alert("Upload ke liye Telegram Bot Token aur GitHub PAT daalna zaroori hai!");
+            }
+            if (chaptersData.length === 0) return alert("Pehle folder select karo!");
+
+            document.getElementById("mergeBtn").disabled = true;
+            document.getElementById("progressContainer").style.display = "block";
+            
+            const zipName = document.getElementById("zipName").value.trim() || "Merged_Chapters";
+            const targetWidth = parseInt(document.getElementById("targetWidth").value);
+            const cropValue = parseInt(document.getElementById("cropPixels").value) || 0;
+            
+            const zip = new JSZip();
+            let githubUploadQueue = [];
+            
+            let totalBatches = chaptersData.reduce((acc, ep) => acc + Math.ceil(ep.files.length / IMAGES_PER_OUTPUT), 0);
+            let processedBatches = 0;
+
+            s("Checking for watermark...");
+            const watermark = await loadWatermark();
+
+            s("Merging and processing images...");
+
+            for (let ep of chaptersData) {
+                let epFolder = zip.folder(`ch${ep.originalName}`);
+                let out = 1;
+                let global = 0; 
+
+                for (let i = 0; i < ep.files.length; i += IMAGES_PER_OUTPUT) {
+                    const batch = ep.files.slice(i, i + IMAGES_PER_OUTPUT);
+                    const images = await Promise.all(batch.map(f => fileToImage(f)));
+
+                    let finalHeight = 0;
+                    let data = images.map(img => {
+                        let scale = targetWidth / img.width;
+                        let originalDrawnHeight = Math.floor(img.height * scale);
+                        let currentCrop = (global === 0) ? 0 : cropValue;
+                        let finalDrawnHeight = originalDrawnHeight - currentCrop;
+                        
+                        finalHeight += finalDrawnHeight;
+                        global++;
+                        return { img, currentCrop, finalDrawnHeight };
+                    });
+
+                    const canvas = document.createElement("canvas");
+                    canvas.width = targetWidth; 
+                    canvas.height = finalHeight;
+                    const ctx = canvas.getContext("2d");
+
+                    let y = 0;
+                    data.forEach(d => {
+                        let scale = targetWidth / d.img.width;
+                        let originalCropOffset = Math.floor(d.currentCrop / scale);
+                        let originalCropHeight = d.img.height - originalCropOffset;
+
+                        ctx.drawImage(
+                            d.img, 
+                            0, originalCropOffset, d.img.width, originalCropHeight, 
+                            0, y, targetWidth, d.finalDrawnHeight
+                        );
+                        y += d.finalDrawnHeight;
+                    });
+
+                    if (watermark) {
+                        const wmWidth = targetWidth * 0.40; 
+                        const wmHeight = watermark.height * (wmWidth / watermark.width);
+                        ctx.globalAlpha = 0.50; 
+                        ctx.drawImage(watermark, targetWidth - wmWidth - 20, (finalHeight / 2) - (wmHeight / 2), wmWidth, wmHeight);
+                        ctx.drawImage(watermark, targetWidth - wmWidth - 20, finalHeight - wmHeight - 20, wmWidth, wmHeight);
+                        ctx.globalAlpha = 1.0; 
+                    }
+
+                    const blob = await new Promise(r => canvas.toBlob(r, "image/webp", 0.95));
+                    
+                    const fileName = String(out).padStart(3, "0") + ".webp";
+                    epFolder.file(fileName, blob);
+                    
+                    githubUploadQueue.push({
+                        blob: blob,
+                        path: `${zipName}/ch${ep.originalName}/${fileName}`
+                    });
+                    
+                    processedBatches++;
+                    p(Math.round((processedBatches / totalBatches) * 100));
+                    s(`Processed Chapter ${ep.originalName} - Slice ${out}`);
+                    out++;
+                }
+            }
+
+            s("Packaging ZIP...");
+            const finalZipBlob = await zip.generateAsync({ type: "blob" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(finalZipBlob);
+            a.download = zipName + ".zip";
+            a.click();
+
+            p(0); 
+            await sendZipToTelegram(finalZipBlob, zipName, botToken);
+
+            p(0);
+            await uploadImagesToGitHub(githubUploadQueue, ghPat);
+
+            s("🎉 All Done! Merged, Backed up to Telegram & Uploaded to GitHub.");
+            document.getElementById("mergeBtn").disabled = false;
+        }
+    </script>
+</body>
+</html>
