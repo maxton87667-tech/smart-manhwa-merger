@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manhwa Merger Pro V4.2 - Auto-Save API Edition</title>
+    <title>Manhwa Merger Pro V4.3 - Smart Path Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root {
@@ -39,15 +39,15 @@
 <body>
     <div class="container">
         <div class="card">
-            <h2>Manhwa Merger Pro V4.2</h2>
-            <p class="subtitle">Secure API Edition (Auto-Save)</p>
+            <h2>Manhwa Merger Pro V4.3</h2>
+            <p class="subtitle">Smart Path Edition (Auto-calculates Chapter Folders)</p>
             
             <div class="section-title">1. Resolution Settings <span class="watermark-badge">✓ Auto-Watermark</span></div>
             
             <div class="settings-grid">
                 <div class="input-group full-width">
-                    <label>Project / Folder Name</label>
-                    <input id="zipName" type="text" placeholder="e.g. Ishq_Par_Jor_Nahi" value="">
+                    <label>Comic Name & Chapters (e.g., wild_love76-80)</label>
+                    <input id="zipName" type="text" placeholder="e.g. wild_love76-80" value="">
                 </div>
                 
                 <div class="input-group">
@@ -64,7 +64,7 @@
                 </div>
             </div>
 
-            <div class="section-title">2. API Credentials <span class="save-badge" id="saveStatus">(Auto-saved in browser)</span></div>
+            <div class="section-title">2. API Credentials <span class="save-badge" id="saveStatus">(Auto-saved)</span></div>
             <div class="settings-grid">
                 <div class="input-group full-width">
                     <label>Telegram Bot Token</label>
@@ -76,7 +76,7 @@
                 </div>
             </div>
 
-            <div class="section-title">3. Select Main Folder</div>
+            <div class="section-title">3. Select Raw Folder (1, 2, 3...)</div>
             
             <div class="folder-btn-wrapper" onclick="document.getElementById('folderInput').click()">
                 <span style="font-size: 16px; font-weight: bold;">📁 Click to Select Raw Chapters</span><br>
@@ -106,7 +106,6 @@
         const IMAGES_PER_OUTPUT = 10; 
         let chaptersData = []; 
 
-        // 🛑 NAYA FEATURE: Auto-load credentials jab page khule
         window.onload = function() {
             if(localStorage.getItem("savedBotToken")) {
                 document.getElementById("botToken").value = localStorage.getItem("savedBotToken");
@@ -116,7 +115,6 @@
             }
         };
 
-        // 🛑 NAYA FEATURE: Jab bhi tum type karoge, save ho jayega
         function saveCredentials() {
             localStorage.setItem("savedBotToken", document.getElementById("botToken").value.trim());
             localStorage.setItem("savedGhPat", document.getElementById("ghPat").value.trim());
@@ -144,6 +142,7 @@
                 }
             });
 
+            // Natural sort folders (1, 2, 3...)
             const sortedFolders = Object.keys(folderGroups).sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
             chaptersData = [];
             document.getElementById("inputsContainer").innerHTML = '';
@@ -151,12 +150,12 @@
             sortedFolders.forEach((folderName) => {
                 let epFiles = folderGroups[folderName].sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true}));
                 chaptersData.push({ originalName: folderName, files: epFiles });
-                document.getElementById("inputsContainer").innerHTML += `<div class="ep-row"><span>Folder: ${folderName}</span><span>${epFiles.length} images</span></div>`;
+                document.getElementById("inputsContainer").innerHTML += `<div class="ep-row"><span>Raw Folder: ${folderName}</span><span>${epFiles.length} images</span></div>`;
             });
 
             if (chaptersData.length > 0) {
                 document.getElementById("mergeBtn").disabled = false;
-                s(`Loaded ${chaptersData.length} folders successfully.`);
+                s(`Loaded ${chaptersData.length} raw folders successfully.`);
             }
         }
 
@@ -253,16 +252,27 @@
             if (!botToken || !ghPat) {
                 return alert("Upload ke liye Telegram Bot Token aur GitHub PAT daalna zaroori hai!");
             }
-            
-            // Ek aakhiri baar save kar lete hain safety ke liye
             saveCredentials();
-
             if (chaptersData.length === 0) return alert("Pehle folder select karo!");
 
             document.getElementById("mergeBtn").disabled = true;
             document.getElementById("progressContainer").style.display = "block";
             
-            const zipName = document.getElementById("zipName").value.trim() || "Merged_Chapters";
+            const rawZipName = document.getElementById("zipName").value.trim() || "Merged_Chapters_1";
+            
+            // 🛑 NEW LOGIC: Extract Comic Name & Starting Chapter
+            // Example: wild_love76-80 -> comicName: "wild_love", startChapter: 76
+            let comicName = "Unknown_Comic";
+            let startChapter = 1;
+            
+            const match = rawZipName.match(/^(.*?)[_\-\s]*(\d+)(?:-\d+)?$/);
+            if (match) {
+                comicName = match[1]; 
+                startChapter = parseInt(match[2]); 
+            } else {
+                comicName = rawZipName;
+            }
+
             const targetWidth = parseInt(document.getElementById("targetWidth").value);
             const cropValue = parseInt(document.getElementById("cropPixels").value) || 0;
             
@@ -275,10 +285,13 @@
             s("Checking for watermark...");
             const watermark = await loadWatermark();
 
-            s("Merging and processing images...");
+            s(`Merging images for ${comicName} starting from Chapter ${startChapter}...`);
 
+            // 🛑 NEW LOGIC: Use chapterOffset to map raw folder 1, 2, 3 -> ch76, ch77, ch78
+            let chapterOffset = 0;
             for (let ep of chaptersData) {
-                let epFolder = zip.folder(`ch${ep.originalName}`);
+                let actualChapter = startChapter + chapterOffset;
+                let epFolder = zip.folder(`ch${actualChapter}`); // Update inside Zip too
                 let out = 1;
                 let global = 0; 
 
@@ -327,36 +340,38 @@
                     }
 
                     const blob = await new Promise(r => canvas.toBlob(r, "image/webp", 0.95));
-                    
                     const fileName = String(out).padStart(3, "0") + ".webp";
+                    
                     epFolder.file(fileName, blob);
                     
+                    // 🛑 NEW PATH LOGIC: comics/wild_love/ch76/001.webp
                     githubUploadQueue.push({
                         blob: blob,
-                        path: `${zipName}/ch${ep.originalName}/${fileName}`
+                        path: `comics/${comicName}/ch${actualChapter}/${fileName}`
                     });
                     
                     processedBatches++;
                     p(Math.round((processedBatches / totalBatches) * 100));
-                    s(`Processed Chapter ${ep.originalName} - Slice ${out}`);
+                    s(`Processed ch${actualChapter} - Slice ${out}`);
                     out++;
                 }
+                chapterOffset++; // Move to next chapter
             }
 
             s("Packaging ZIP...");
             const finalZipBlob = await zip.generateAsync({ type: "blob" });
             const a = document.createElement("a");
             a.href = URL.createObjectURL(finalZipBlob);
-            a.download = zipName + ".zip";
+            a.download = rawZipName + ".zip";
             a.click();
 
             p(0); 
-            await sendZipToTelegram(finalZipBlob, zipName, botToken);
+            await sendZipToTelegram(finalZipBlob, rawZipName, botToken);
 
             p(0);
             await uploadImagesToGitHub(githubUploadQueue, ghPat);
 
-            s("🎉 All Done! Merged, Backed up to Telegram & Uploaded to GitHub.");
+            s("🎉 All Done! ZIP Downloaded, Sent to Telegram & Correct Paths Uploaded to GitHub.");
             document.getElementById("mergeBtn").disabled = false;
         }
     </script>
