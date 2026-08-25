@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manhwa Merger Pro V4.3 - Smart Path Edition</title>
+    <title>Manhwa Merger Pro V4.4 - Cloud Only Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root {
@@ -39,8 +39,8 @@
 <body>
     <div class="container">
         <div class="card">
-            <h2>Manhwa Merger Pro V4.3</h2>
-            <p class="subtitle">Smart Path Edition (Auto-calculates Chapter Folders)</p>
+            <h2>Manhwa Merger Pro V4.4</h2>
+            <p class="subtitle">Cloud Only Edition (No Local Download)</p>
             
             <div class="section-title">1. Resolution Settings <span class="watermark-badge">✓ Auto-Watermark</span></div>
             
@@ -142,7 +142,6 @@
                 }
             });
 
-            // Natural sort folders (1, 2, 3...)
             const sortedFolders = Object.keys(folderGroups).sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
             chaptersData = [];
             document.getElementById("inputsContainer").innerHTML = '';
@@ -260,8 +259,6 @@
             
             const rawZipName = document.getElementById("zipName").value.trim() || "Merged_Chapters_1";
             
-            // 🛑 NEW LOGIC: Extract Comic Name & Starting Chapter
-            // Example: wild_love76-80 -> comicName: "wild_love", startChapter: 76
             let comicName = "Unknown_Comic";
             let startChapter = 1;
             
@@ -287,11 +284,10 @@
 
             s(`Merging images for ${comicName} starting from Chapter ${startChapter}...`);
 
-            // 🛑 NEW LOGIC: Use chapterOffset to map raw folder 1, 2, 3 -> ch76, ch77, ch78
             let chapterOffset = 0;
             for (let ep of chaptersData) {
                 let actualChapter = startChapter + chapterOffset;
-                let epFolder = zip.folder(`ch${actualChapter}`); // Update inside Zip too
+                let epFolder = zip.folder(`ch${actualChapter}`); 
                 let out = 1;
                 let global = 0; 
 
@@ -344,7 +340,6 @@
                     
                     epFolder.file(fileName, blob);
                     
-                    // 🛑 NEW PATH LOGIC: comics/wild_love/ch76/001.webp
                     githubUploadQueue.push({
                         blob: blob,
                         path: `comics/${comicName}/ch${actualChapter}/${fileName}`
@@ -355,15 +350,12 @@
                     s(`Processed ch${actualChapter} - Slice ${out}`);
                     out++;
                 }
-                chapterOffset++; // Move to next chapter
+                chapterOffset++; 
             }
 
-            s("Packaging ZIP...");
+            // ZIP bas generate hogi, par ab download (a.click) wala hissa hata diya hai
+            s("Packaging ZIP for Telegram...");
             const finalZipBlob = await zip.generateAsync({ type: "blob" });
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(finalZipBlob);
-            a.download = rawZipName + ".zip";
-            a.click();
 
             p(0); 
             await sendZipToTelegram(finalZipBlob, rawZipName, botToken);
@@ -371,7 +363,7 @@
             p(0);
             await uploadImagesToGitHub(githubUploadQueue, ghPat);
 
-            s("🎉 All Done! ZIP Downloaded, Sent to Telegram & Correct Paths Uploaded to GitHub.");
+            s("🎉 All Done! Sent to Telegram & Correct Paths Uploaded to GitHub.");
             document.getElementById("mergeBtn").disabled = false;
         }
     </script>
