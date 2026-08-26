@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manhwa Merger Pro V5.1 - Auto-Correct Edition</title>
+    <title>Manhwa Merger Pro V5.2 - Per-Comic ZIP Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root {
@@ -42,8 +42,8 @@
 <body>
     <div class="container">
         <div class="card">
-            <h2>Manhwa Merger Pro V5.1</h2>
-            <p class="subtitle">Multi-Comic Batch + GitHub Auto-Correction</p>
+            <h2>Manhwa Merger Pro V5.2</h2>
+            <p class="subtitle">Per-Comic ZIP Backup & Smart Routing</p>
             
             <div class="section-title">1. Dictionary & Settings <span class="watermark-badge">✓ Auto-Saved</span></div>
             
@@ -51,7 +51,7 @@
                 <div class="input-group full-width">
                     <label>Comic Shortcuts Mapping</label>
                     <textarea id="comicMappings" rows="3" placeholder="WL = wild_love&#10;JJSS = jija-ji-se-shaadi" oninput="saveCredentials()"></textarea>
-                    <p class="note">Format: SHORTCUT = NAME (Tool will automatically fix - or _ errors by checking GitHub)</p>
+                    <p class="note">Format: SHORTCUT = NAME (Tool automatically fixes - or _ errors)</p>
                 </div>
 
                 <div class="input-group">
@@ -92,7 +92,7 @@
                 <div style="text-align: center; color: var(--text-muted); font-size: 13px;">No folders selected yet.</div>
             </div>
             
-            <button id="mergeBtn" onclick="startMerge()" disabled>Process All Comics & Upload</button>
+            <button id="mergeBtn" onclick="startMerge()" disabled>Process & Auto-Upload</button>
             
             <div id="progressContainer" class="progress"><div id="bar" class="bar"></div></div>
             <p id="status">Ready to process</p>
@@ -187,8 +187,8 @@
                 });
 
                 batchData.push({
-                    originalFolder: comicFolder,
-                    githubName: intendedName, // Initial intended name
+                    originalFolder: comicFolder, // This is what we will use for the ZIP name (e.g. WL 76)
+                    githubName: intendedName, 
                     startChapter: startChapter,
                     chapters: chapters
                 });
@@ -213,7 +213,6 @@
             }
         }
 
-        // 🛑 NEW FUNCTION: Check existing GitHub folders to prevent - and _ mistakes
         async function getExistingGitHubFolders(ghPat) {
             try {
                 const res = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/comics`, {
@@ -267,7 +266,6 @@
         }
 
         async function sendZipToTelegram(zipBlob, zipName, botToken) {
-            s("Uploading Master ZIP to Telegram Backup...");
             const formData = new FormData();
             formData.append("chat_id", TELEGRAM_CHAT_ID);
             formData.append("document", zipBlob, `${zipName}.zip`);
@@ -326,31 +324,24 @@
             document.getElementById("mergeBtn").disabled = true;
             document.getElementById("progressContainer").style.display = "block";
 
-            // 🛑 APPLYING AUTO-CORRECTION LOGIC BEFORE PROCESSING
             s("Verifying folders with GitHub to prevent path errors...");
             const existingFolders = await getExistingGitHubFolders(ghPat);
-            
-            // Helper function to remove dashes and underscores for comparison (wild-love -> wildlove)
             const sanitize = str => str.replace(/[-_]/g, '').toLowerCase();
 
             for (let comic of batchData) {
                 const intendedName = comic.githubName;
                 const sanitizedIntended = sanitize(intendedName);
-                
                 const matchedExisting = existingFolders.find(f => sanitize(f) === sanitizedIntended);
                 
                 if (matchedExisting && matchedExisting !== intendedName) {
-                    console.log(`Auto-Corrected: User typed '${intendedName}', but GitHub has '${matchedExisting}'. Fixed!`);
-                    comic.githubName = matchedExisting; // Override with exact GitHub name
+                    comic.githubName = matchedExisting; 
                 }
             }
             
             const targetWidth = parseInt(document.getElementById("targetWidth").value);
             const cropValue = parseInt(document.getElementById("cropPixels").value) || 0;
             
-            const zip = new JSZip();
             let githubUploadQueue = [];
-            
             let totalBatches = 0;
             batchData.forEach(comic => {
                 comic.chapters.forEach(ch => {
@@ -361,13 +352,17 @@
             let processedBatches = 0;
             const watermark = await loadWatermark();
 
+            // Loop through each comic separately
             for (let comic of batchData) {
                 s(`Processing comic: ${comic.githubName}...`);
                 let chapterOffset = 0;
+                
+                // CREATE A NEW ZIP FOR EVERY COMIC
+                const comicZip = new JSZip();
 
                 for (let ch of comic.chapters) {
                     let actualChapter = comic.startChapter + chapterOffset;
-                    let epFolder = zip.folder(`${comic.githubName}/ch${actualChapter}`); 
+                    let epFolder = comicZip.folder(`${comic.githubName}/ch${actualChapter}`); 
                     let out = 1;
                     let global = 0; 
 
@@ -427,19 +422,20 @@
                     }
                     chapterOffset++; 
                 }
+
+                // Comic processing complete, now generate and upload ITS OWN zip
+                s(`Packaging ZIP for ${comic.originalFolder}...`);
+                const comicZipBlob = await comicZip.generateAsync({ type: "blob" });
+
+                s(`Uploading ${comic.originalFolder}.zip to Telegram...`);
+                await sendZipToTelegram(comicZipBlob, comic.originalFolder, botToken);
             }
 
-            s("Packaging Master ZIP for Telegram...");
-            const finalZipBlob = await zip.generateAsync({ type: "blob" });
-            const zipBackupName = `Comics_Backup_${Date.now()}`;
-
-            p(0); 
-            await sendZipToTelegram(finalZipBlob, zipBackupName, botToken);
-
+            // Once all comics are zipped and sent to Telegram, upload everything to GitHub
             p(0);
             await uploadImagesToGitHub(githubUploadQueue, ghPat);
 
-            s("🎉 Master Batch Processing Complete! Sent to Telegram & GitHub.");
+            s("🎉 All comics processed! Individual ZIPs sent to Telegram & Uploaded to GitHub.");
             document.getElementById("mergeBtn").disabled = false;
         }
     </script>
