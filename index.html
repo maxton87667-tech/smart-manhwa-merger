@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manhwa Merger Pro V5.2 - Per-Comic ZIP Edition</title>
+    <title>Manhwa Merger Pro V5.3 - Fixed Zip Routing</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root {
@@ -42,8 +42,8 @@
 <body>
     <div class="container">
         <div class="card">
-            <h2>Manhwa Merger Pro V5.2</h2>
-            <p class="subtitle">Per-Comic ZIP Backup & Smart Routing</p>
+            <h2>Manhwa Merger Pro V5.3</h2>
+            <p class="subtitle">Multi-ZIP Telegram Safe Processing</p>
             
             <div class="section-title">1. Dictionary & Settings <span class="watermark-badge">✓ Auto-Saved</span></div>
             
@@ -80,11 +80,10 @@
                 </div>
             </div>
 
-            <div class="section-title">3. Select Main Folder</div>
+            <div class="section-title">3. Select Raw Folders</div>
             
             <div class="folder-btn-wrapper" onclick="document.getElementById('folderInput').click()">
-                <span style="font-size: 16px; font-weight: bold;">📁 Select Folder Containing Comics</span><br>
-                <span class="note">Structure: Main Folder > WL 76 > 1 > images...</span>
+                <span style="font-size: 16px; font-weight: bold;">📁 Select Folders (e.g., WL 76, JJSS 80)</span><br>
                 <input id="folderInput" type="file" webkitdirectory directory multiple style="display: none;" onchange="handleFolderSelect(this)">
             </div>
 
@@ -150,9 +149,11 @@
             files.forEach(file => {
                 if (!file.type.startsWith('image/')) return;
                 const parts = file.webkitRelativePath.split('/');
-                if (parts.length >= 4) {
-                    const comicFolder = parts[1]; 
-                    const chapterFolder = parts[2]; 
+                
+                // NAYA LOGIC: Hamesha end se 2nd ko Chapter aur 3rd ko Comic Name banayega
+                if (parts.length >= 3) {
+                    const chapterFolder = parts[parts.length - 2]; 
+                    const comicFolder = parts[parts.length - 3]; 
                     
                     if (!comicsObj[comicFolder]) comicsObj[comicFolder] = {};
                     if (!comicsObj[comicFolder][chapterFolder]) comicsObj[comicFolder][chapterFolder] = [];
@@ -187,7 +188,7 @@
                 });
 
                 batchData.push({
-                    originalFolder: comicFolder, // This is what we will use for the ZIP name (e.g. WL 76)
+                    originalFolder: comicFolder, // Telegram ZIP is naam se banegi (e.g. WL 76)
                     githubName: intendedName, 
                     startChapter: startChapter,
                     chapters: chapters
@@ -198,7 +199,7 @@
                 
                 let offset = 0;
                 chapters.forEach(ch => {
-                    html += `<div class="ep-row-detail"><span>Sub-folder: ${ch.rawName}</span> <span>ch${startChapter + offset} (${ch.files.length} imgs)</span></div>`;
+                    html += `<div class="ep-row-detail"><span>Raw Folder: ${ch.rawName}</span> <span>ch${startChapter + offset} (${ch.files.length} imgs)</span></div>`;
                     offset++;
                 });
                 html += `</div>`;
@@ -207,9 +208,9 @@
 
             if (batchData.length > 0) {
                 document.getElementById("mergeBtn").disabled = false;
-                s(`Loaded ${batchData.length} comics successfully.`);
+                s(`Loaded ${batchData.length} distinct comics successfully.`);
             } else {
-                s("No valid structure found. Need: Folder > ComicName > 1 > images");
+                s("Format Error. Structure required: Comic Folder (WL 76) > Chapter (1) > images");
             }
         }
 
@@ -316,15 +317,15 @@
             const botToken = document.getElementById("botToken").value.trim();
             const ghPat = document.getElementById("ghPat").value.trim();
             
-            if (!botToken || !ghPat) return alert("Upload ke liye Telegram Bot Token aur GitHub PAT daalna zaroori hai!");
+            if (!botToken || !ghPat) return alert("API Credentials required!");
             
             saveCredentials();
-            if (batchData.length === 0) return alert("Pehle main folder select karo!");
+            if (batchData.length === 0) return alert("Pehle folders select karo!");
 
             document.getElementById("mergeBtn").disabled = true;
             document.getElementById("progressContainer").style.display = "block";
 
-            s("Verifying folders with GitHub to prevent path errors...");
+            s("Checking exact paths from GitHub...");
             const existingFolders = await getExistingGitHubFolders(ghPat);
             const sanitize = str => str.replace(/[-_]/g, '').toLowerCase();
 
@@ -352,17 +353,18 @@
             let processedBatches = 0;
             const watermark = await loadWatermark();
 
-            // Loop through each comic separately
+            // HAR COMIC ALAG PROCESS HOGI
             for (let comic of batchData) {
                 s(`Processing comic: ${comic.githubName}...`);
                 let chapterOffset = 0;
                 
-                // CREATE A NEW ZIP FOR EVERY COMIC
+                // 🛑 Yahan naya zip instance ban raha hai specially is comic ke liye
                 const comicZip = new JSZip();
 
                 for (let ch of comic.chapters) {
                     let actualChapter = comic.startChapter + chapterOffset;
-                    let epFolder = comicZip.folder(`${comic.githubName}/ch${actualChapter}`); 
+                    // Note: GitHub upload path se farak padta hai, ZIP path simple rakha gaya hai
+                    let epFolder = comicZip.folder(`ch${actualChapter}`); 
                     let out = 1;
                     let global = 0; 
 
@@ -423,19 +425,20 @@
                     chapterOffset++; 
                 }
 
-                // Comic processing complete, now generate and upload ITS OWN zip
                 s(`Packaging ZIP for ${comic.originalFolder}...`);
                 const comicZipBlob = await comicZip.generateAsync({ type: "blob" });
 
-                s(`Uploading ${comic.originalFolder}.zip to Telegram...`);
+                s(`Sending ${comic.originalFolder}.zip to Telegram...`);
                 await sendZipToTelegram(comicZipBlob, comic.originalFolder, botToken);
+                
+                // 🛑 NEW: 3 second delay so Telegram doesn't block fast continuous uploads
+                await new Promise(resolve => setTimeout(resolve, 3000));
             }
 
-            // Once all comics are zipped and sent to Telegram, upload everything to GitHub
             p(0);
             await uploadImagesToGitHub(githubUploadQueue, ghPat);
 
-            s("🎉 All comics processed! Individual ZIPs sent to Telegram & Uploaded to GitHub.");
+            s("🎉 Success! Separate ZIPs sent to Telegram & Auto-Uploaded to GitHub.");
             document.getElementById("mergeBtn").disabled = false;
         }
     </script>
